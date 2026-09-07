@@ -58,7 +58,8 @@ test("release publishes macOS DMG bundle", () => {
 
 test("release consolidates multi-platform checksums across all artifacts", () => {
   assert.match(releaseWorkflow, /needs:\s*\[windows,\s*linux,\s*macos\]/);
-  assert.match(releaseWorkflow, /sha256sum \* > SHA256SUMS\.txt/);
+  assert.match(releaseWorkflow, /select\(\.name != "SHA256SUMS\.txt"\)/);
+  assert.match(releaseWorkflow, /gh release upload "\${{ github\.ref_name }}" SHA256SUMS\.txt/);
 });
 
 
