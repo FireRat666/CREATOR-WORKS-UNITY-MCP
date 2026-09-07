@@ -74,3 +74,123 @@ jobs:
             Write-Warning "Release asset upload attempt $attempt failed; retrying in $delaySeconds seconds."
             Start-Sleep -Seconds $delaySeconds
           }
+
+  linux:
+    name: Linux AppImage and DEB bundle
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Rust + Tauri system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            file
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run check:version
+      - run: npm run release:launcher
+      - run: npm audit --audit-level=low
+      - run: cargo test
+        working-directory: launcher/src-tauri
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_STRIP: 1
+        with:
+          projectPath: launcher
+          tagName: ${{ github.ref_name }}
+          releaseName: "Creator Works MCP __VERSION__"
+          releaseBody: "The guided Windows installer includes the MCP server, Unity bridge, and a private Node.js 24 LTS runtime. Save your work and close MCP clients if Setup asks. The standalone ZIP remains available for manual Node.js 20+ deployments."
+          releaseDraft: true
+          prerelease: false
+          args: "--bundles appimage,deb"
+
+  macos:
+    name: macOS DMG bundle
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run check:version
+      - run: npm run release:launcher
+      - run: npm audit --audit-level=low
+      - run: cargo test
+        working-directory: launcher/src-tauri
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: launcher
+          tagName: ${{ github.ref_name }}
+          releaseName: "Creator Works MCP __VERSION__"
+          releaseBody: "The guided Windows installer includes the MCP server, Unity bridge, and a private Node.js 24 LTS runtime. Save your work and close MCP clients if Setup asks. The standalone ZIP remains available for manual Node.js 20+ deployments."
+          releaseDraft: true
+          prerelease: false
+          args: "--bundles dmg"
+
+  checksums:
+    name: Consolidate SHA256 checksums
+    runs-on: ubuntu-latest
+    needs: [windows, linux, macos]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download all release artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p release-assets
+          max_attempts=5
+          for attempt in $(seq 1 $max_attempts); do
+            if gh release download "${{ github.ref_name }}" --dir release-assets --repo "${{ github.repository }}"; then
+              break
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "Release asset download failed after $max_attempts attempts." >&2
+              exit 1
+            fi
+            delay=$((5 * 2 ** (attempt - 1)))
+            echo "Release asset download attempt $attempt failed; retrying in $delay seconds..." >&2
+            sleep $delay
+          done
+
+      - name: Compute consolidated checksums and upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd release-assets
+          rm -f SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
+          max_attempts=5
+          for attempt in $(seq 1 $max_attempts); do
+            if gh release upload "${{ github.ref_name }}" SHA256SUMS.txt --clobber --repo "${{ github.repository }}"; then
+              break
+            fi
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "Release checksum upload failed after $max_attempts attempts." >&2
+              exit 1
+            fi
+            delay=$((5 * 2 ** (attempt - 1)))
+            echo "Release checksum upload attempt $attempt failed; retrying in $delay seconds..." >&2
+            sleep $delay
+          done
+
