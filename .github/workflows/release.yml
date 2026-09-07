@@ -76,7 +76,7 @@ jobs:
           }
 
   linux:
-    name: Linux AppImage and DEB bundle
+    name: Linux AppImage, DEB, and RPM bundle
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -115,7 +115,7 @@ jobs:
           releaseBody: "The guided Windows installer includes the MCP server, Unity bridge, and a private Node.js 24 LTS runtime. Save your work and close MCP clients if Setup asks. The standalone ZIP remains available for manual Node.js 20+ deployments."
           releaseDraft: true
           prerelease: false
-          args: "--bundles appimage,deb"
+          args: "--bundles appimage,deb,rpm"
 
   macos:
     name: macOS DMG bundle

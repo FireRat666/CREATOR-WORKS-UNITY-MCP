@@ -43,11 +43,11 @@ test("release publishes one guided Windows installer path", () => {
   assert.doesNotMatch(releaseWorkflow, /\.Extension -in[^\r\n]*\.msi/i);
 });
 
-test("release publishes Linux AppImage and DEB bundles", () => {
-  assert.match(releaseWorkflow, /name:\s*Linux AppImage and DEB bundle/);
+test("release publishes Linux AppImage, DEB, and RPM bundles", () => {
+  assert.match(releaseWorkflow, /name:\s*Linux AppImage, DEB, and RPM bundle/);
   assert.match(releaseWorkflow, /runs-on:\s*ubuntu-22\.04/);
   assert.match(releaseWorkflow, /NO_STRIP:\s*1/);
-  assert.match(releaseWorkflow, /args:\s*"--bundles appimage,deb"/);
+  assert.match(releaseWorkflow, /args:\s*"--bundles appimage,deb,rpm"/);
 });
 
 test("release publishes macOS DMG bundle", () => {
